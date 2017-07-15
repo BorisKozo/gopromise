@@ -6,33 +6,51 @@ const pendingState = "pending"
 const resolvedState = "resolved"
 const rejectedState = "rejected"
 
-type PromiseResolveCallback func(interface{})
-type PromiseRejectCallback func(error)
+type PromiseResolveCallback func(interface{}) interface{}
+type PromiseRejectCallback func(error) interface{}
+
 type Promise interface {
   Then(callback PromiseResolveCallback) Promise
   Catch(callback PromiseRejectCallback) Promise
+}
+
+type resolveCallbackData struct {
+  callback     PromiseResolveCallback
+  //innerPromise Promise
+  resolve      func(interface{})
+  reject       func(error)
 }
 
 type promise struct {
   state        string
   resolveValue interface{}
   rejectValue  error
-  nextResolved []PromiseResolveCallback
+  nextResolved []resolveCallbackData
   nextRejected []PromiseRejectCallback
 }
 
 func (p *promise) Then(callback PromiseResolveCallback) Promise {
   if p.state == resolvedState {
-    callback(p.resolveValue)
-    return PromiseResolve(p.resolveValue)
+    nextValue := callback(p.resolveValue)
+    innerPromise, ok := nextValue.(Promise)
+    if ok {
+      return innerPromise
+    }
+    return PromiseResolve(nextValue)
   }
 
   if p.state == rejectedState {
     return PromiseReject(p.rejectValue)
   }
 
-  p.nextResolved = append(p.nextResolved, callback)
-  return p
+  callbackData := resolveCallbackData{callback: callback}
+  innerPromise := NewPromise(func(resolve func(interface{}), reject func(error)) {
+    callbackData.resolve = resolve
+    callbackData.reject = reject
+  })
+  //callbackData.innerPromise = innerPromise
+  p.nextResolved = append(p.nextResolved, callbackData)
+  return innerPromise
 }
 
 func (p *promise) Catch(callback PromiseRejectCallback) Promise {
@@ -55,8 +73,14 @@ func (p *promise) handleResolve(value interface{}) {
   }
   p.state = resolvedState
   p.resolveValue = value
-  for _, callback := range p.nextResolved {
-    callback(value)
+  for _, callbackData := range p.nextResolved {
+    nextValue := callbackData.callback(value)
+    err, isError := nextValue.(error)
+    if isError {
+      callbackData.reject(err)
+    } else {
+      callbackData.resolve(nextValue)
+    }
   }
 }
 
@@ -76,12 +100,12 @@ func defaultPromise() *promise {
     state:        "pending",
     resolveValue: nil,
     rejectValue:  nil,
-    nextResolved: make([]PromiseResolveCallback, 1),
-    nextRejected: make([]PromiseRejectCallback, 1),
+    nextResolved: []resolveCallbackData{},
+    nextRejected: []PromiseRejectCallback{},
   }
 }
 
-func NewPromise(callback func(resolve PromiseResolveCallback, reject PromiseRejectCallback)) Promise {
+func NewPromise(callback func(resolve func(interface{}), reject func(error))) Promise {
   result := defaultPromise()
   resolveFunc := func(value interface{}) {
     result.handleResolve(value)
