@@ -22,7 +22,7 @@ func TestPromiseResolve(t *testing.T) {
   promiseInstance := PromiseResolve(nil)
   promiseInternal := promiseInstance.(*promise)
   assert.NotNil(t, promiseInternal)
-  assert.Equal(t, promiseInternal.state, resolvedState)
+  assert.Equal(t, promiseInternal.state, fulfilledState)
 }
 
 func TestPromiseReject(t *testing.T) {
@@ -67,6 +67,18 @@ func TestPromiseChainThenThen(t *testing.T) {
   assert.Equal(t, "baz", promiseInternal.resolveValue)
 }
 
+func TestPromiseChainThenThenPromise(t *testing.T) {
+  promiseInstance := PromiseResolve("foo").Then(func(i interface{}) interface{} {
+    assert.Equal(t, "foo", i)
+    return PromiseResolve("bar")
+  }).Then(func(i interface{}) interface{} {
+    assert.Equal(t, "bar", i)
+    return "baz"
+  })
+  promiseInternal := promiseInstance.(*promise)
+  assert.Equal(t, "baz", promiseInternal.resolveValue)
+}
+
 func TestPromiseChainThenThenDelayed(t *testing.T) {
   doneChan := make(chan bool, 1)
   promiseInstance := NewPromise(func(resolve func(interface{}), reject func(error)) {
@@ -84,4 +96,50 @@ func TestPromiseChainThenThenDelayed(t *testing.T) {
     return "baz"
   })
   <-doneChan
+}
+
+func TestPromiseChainThenThenPromiseDelayed(t *testing.T) {
+  doneChan := make(chan bool, 1)
+  promiseInstance := NewPromise(func(resolve func(interface{}), reject func(error)) {
+    go func() {
+      time.Sleep(100 * time.Millisecond)
+      resolve("foo")
+      doneChan <- true
+    }()
+  })
+  promiseInstance.Then(func(i interface{}) interface{} {
+    assert.Equal(t, "foo", i)
+    return PromiseResolve("bar")
+  }).Then(func(i interface{}) interface{} {
+    assert.Equal(t, "bar", i)
+    return "baz"
+  })
+  <-doneChan
+}
+
+func TestPromiseChainReduceThenDelayed(t *testing.T) {
+  doneChan := make(chan bool, 1)
+  promiseInstance := NewPromise(func(resolve func(interface{}), reject func(error)) {
+    go func() {
+      time.Sleep(100 * time.Millisecond)
+      resolve(2)
+      doneChan <- true
+    }()
+  })
+  currentPromise := promiseInstance
+  for i := 0; i < 10; i++ {
+    currentPromise = currentPromise.Then(func(i interface{}) interface{} {
+      return PromiseResolve(i).Then(func(i interface{}) interface{} {
+        return i.(int) * 2
+      })
+    })
+  }
+
+  var result int
+  currentPromise.Then(func(i interface{}) interface{} {
+    result = i.(int)
+    return nil
+  })
+  <-doneChan
+  assert.Equal(t, 2048, result)
 }

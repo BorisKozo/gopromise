@@ -3,7 +3,7 @@ package Promise
 import "fmt"
 
 const pendingState = "pending"
-const resolvedState = "resolved"
+const fulfilledState = "fulfilled"
 const rejectedState = "rejected"
 
 type PromiseResolveCallback func(interface{}) interface{}
@@ -15,10 +15,10 @@ type Promise interface {
 }
 
 type resolveCallbackData struct {
-  callback     PromiseResolveCallback
+  callback PromiseResolveCallback
   //innerPromise Promise
-  resolve      func(interface{})
-  reject       func(error)
+  resolve func(interface{})
+  reject  func(error)
 }
 
 type promise struct {
@@ -30,7 +30,7 @@ type promise struct {
 }
 
 func (p *promise) Then(callback PromiseResolveCallback) Promise {
-  if p.state == resolvedState {
+  if p.state == fulfilledState {
     nextValue := callback(p.resolveValue)
     innerPromise, ok := nextValue.(Promise)
     if ok {
@@ -59,7 +59,7 @@ func (p *promise) Catch(callback PromiseRejectCallback) Promise {
     return PromiseReject(p.rejectValue)
   }
 
-  if p.state == resolvedState {
+  if p.state == fulfilledState {
     return PromiseResolve(p.resolveValue)
   }
 
@@ -67,20 +67,32 @@ func (p *promise) Catch(callback PromiseRejectCallback) Promise {
   return p
 }
 
+func resolveOrReject(value interface{}, callbackData resolveCallbackData) {
+  err, isError := value.(error)
+  if isError {
+    callbackData.reject(err)
+  } else {
+    innerPromise, isPromise := value.(Promise)
+    if isPromise {
+      innerPromise.Then(func(innerValue interface{}) interface{} {
+        resolveOrReject(innerValue, callbackData)
+        return nil
+      })
+    } else {
+      callbackData.resolve(value)
+    }
+  }
+}
+
 func (p *promise) handleResolve(value interface{}) {
   if p.state != pendingState {
     panic(fmt.Errorf("Trying to resolve a promise which is not pending but %v", p.state))
   }
-  p.state = resolvedState
+  p.state = fulfilledState
   p.resolveValue = value
   for _, callbackData := range p.nextResolved {
     nextValue := callbackData.callback(value)
-    err, isError := nextValue.(error)
-    if isError {
-      callbackData.reject(err)
-    } else {
-      callbackData.resolve(nextValue)
-    }
+    resolveOrReject(nextValue, callbackData)
   }
 }
 
