@@ -145,6 +145,24 @@ var _ = Describe("Promise", func() {
       <-doneChan
       assert.Equal(t, 2048, result)
     })
+
+    It("should call Then callback after Catch callback if a value was returned", func() {
+      promiseInstance := PromiseResolve("foo").Then(func(i interface{}) interface{} {
+        assert.Equal(t, "foo", i)
+        return fmt.Errorf("Error!")
+      }).Catch(func(err error) interface{} {
+        return "baz"
+      })
+      promiseInternal := promiseInstance.(*promise)
+      assert.Equal(t, "baz", promiseInternal.resolveValue)
+    })
+
+    It("should not call Then callback of a rejected promise", func() {
+      PromiseReject(fmt.Errorf("foo")).Then(func(i interface{}) interface{} {
+        assert.Fail(t, "Should not call Then callback on rejected promise")
+        return nil
+      })
+    })
   })
 
   Describe("Catch", func() {
