@@ -89,3 +89,15 @@ PromiseReject(fmt.Errorf("Bad Error")).Catch(func(err error) interface{} {
         return nil
       })
 ```
+
+## Change Log
+
+**1.0.0**
+- Added initial implementation for Promise interface
+- Promise has Then and Catch functions
+- NewPromise function creates a promise
+- PromiseResolve and PromiseReject
+
+
+## License
+MIT
