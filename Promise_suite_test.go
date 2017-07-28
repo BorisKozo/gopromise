@@ -42,6 +42,21 @@ var _ = Describe("Promise", func() {
       assert.NotNil(t, promiseInternal)
       assert.Equal(t, promiseInternal.state, rejectedState)
     })
+
+    It("should reject if a rejected promise is resolved", func() {
+      done := false
+      promise1 := PromiseReject(fmt.Errorf("error"))
+      NewPromise(func(resolve func(interface{}), reject func(error)) {
+        resolve(promise1)
+      }).Then(func(i interface{}) interface{} {
+        assert.Fail(t, "should not be here")
+        return nil
+      }).Catch(func(i error) interface{} {
+        done = true
+        return nil
+      })
+      assert.True(t, done)
+    })
   })
 
   Describe("Then", func() {
@@ -85,7 +100,7 @@ var _ = Describe("Promise", func() {
       doneChan := make(chan bool, 1)
       promiseInstance := NewPromise(func(resolve func(interface{}), reject func(error)) {
         go func() {
-          time.Sleep(100 * time.Millisecond)
+          time.Sleep(10 * time.Millisecond)
           resolve("foo")
           doneChan <- true
         }()
@@ -104,7 +119,7 @@ var _ = Describe("Promise", func() {
       doneChan := make(chan bool, 1)
       promiseInstance := NewPromise(func(resolve func(interface{}), reject func(error)) {
         go func() {
-          time.Sleep(100 * time.Millisecond)
+          time.Sleep(10 * time.Millisecond)
           resolve("foo")
           doneChan <- true
         }()
@@ -123,7 +138,7 @@ var _ = Describe("Promise", func() {
       doneChan := make(chan bool, 1)
       promiseInstance := NewPromise(func(resolve func(interface{}), reject func(error)) {
         go func() {
-          time.Sleep(100 * time.Millisecond)
+          time.Sleep(10 * time.Millisecond)
           resolve(2)
           doneChan <- true
         }()
@@ -146,15 +161,74 @@ var _ = Describe("Promise", func() {
       assert.Equal(t, 2048, result)
     })
 
-    It("should call Then callback after Catch callback if a value was returned", func() {
+    It("should call Then callback after Catch callback if an error value was returned", func() {
       promiseInstance := PromiseResolve("foo").Then(func(i interface{}) interface{} {
         assert.Equal(t, "foo", i)
         return fmt.Errorf("Error!")
       }).Catch(func(err error) interface{} {
         return "baz"
+      }).Then(func(i interface{}) interface{} {
+        return "bat"
       })
       promiseInternal := promiseInstance.(*promise)
-      assert.Equal(t, "baz", promiseInternal.resolveValue)
+      assert.Equal(t, "bat", promiseInternal.resolveValue)
+    })
+
+    It("should call Then callback after Catch callback if an error value was returned in the future", func() {
+      doneChan := make(chan bool, 1)
+      promiseInstance := NewPromise(func(resolve func(interface{}), reject func(error)) {
+        go func() {
+          time.Sleep(10 * time.Millisecond)
+          resolve("foo")
+          doneChan <- true
+        }()
+      }).Then(func(i interface{}) interface{} {
+        assert.Equal(t, "foo", i)
+        return fmt.Errorf("Error!")
+      }).Catch(func(err error) interface{} {
+        return "baz"
+      }).Then(func(i interface{}) interface{} {
+        return "bat"
+      })
+      <-doneChan
+      promiseInternal := promiseInstance.(*promise)
+      assert.Equal(t, "bat", promiseInternal.resolveValue)
+    })
+
+    It("should call Then callback after Catch callback if a value was returned", func() {
+      promiseInstance := PromiseResolve("foo").Then(func(i interface{}) interface{} {
+        assert.Equal(t, "foo", i)
+        return "foo2"
+      }).Catch(func(err error) interface{} {
+        assert.Fail(t, "should not be here")
+        return "baz"
+      }).Then(func(i interface{}) interface{} {
+        return "bat"
+      })
+      promiseInternal := promiseInstance.(*promise)
+      assert.Equal(t, "bat", promiseInternal.resolveValue)
+    })
+
+    It("should call Then callback after Catch callback if a value was returned in the future", func() {
+      doneChan := make(chan bool, 1)
+      promiseInstance := NewPromise(func(resolve func(interface{}), reject func(error)) {
+        go func() {
+          time.Sleep(10 * time.Millisecond)
+          resolve("foo")
+          doneChan <- true
+        }()
+      }).Then(func(i interface{}) interface{} {
+        assert.Equal(t, "foo", i)
+        return "foo2"
+      }).Catch(func(err error) interface{} {
+        assert.Fail(t, "should not be here")
+        return "baz"
+      }).Then(func(i interface{}) interface{} {
+        return "bat"
+      })
+      <-doneChan
+      promiseInternal := promiseInstance.(*promise)
+      assert.Equal(t, "bat", promiseInternal.resolveValue)
     })
 
     It("should not call Then callback of a rejected promise", func() {
@@ -174,6 +248,68 @@ var _ = Describe("Promise", func() {
         done = true
         return nil
       })
+      assert.True(t, done)
+    })
+
+    It("should call Catch on a rejected promise in the future", func() {
+      doneChan := make(chan bool, 1)
+      promiseInstance := NewPromise(func(resolve func(interface{}), reject func(error)) {
+        go func() {
+          time.Sleep(10 * time.Millisecond)
+          reject(fmt.Errorf("foo"))
+          doneChan <- true
+        }()
+      })
+
+      <-doneChan
+      promiseInternal := promiseInstance.(*promise)
+      assert.Equal(t, "foo", promiseInternal.rejectValue.Error())
+    })
+
+    It("should call Catch on a rejected promise after Then", func() {
+      done := false
+      promiseInstance := PromiseReject(fmt.Errorf("Error"))
+      promiseInstance.Catch(func(i error) interface{} {
+        assert.Equal(t, "Error", i.Error())
+        done = true
+        return nil
+      })
+      assert.True(t, done)
+    })
+
+    It("should call Catch on a rejected promise after Then in the future", func() {
+      doneChan := make(chan bool, 1)
+      promiseInstance := NewPromise(func(resolve func(interface{}), reject func(error)) {
+        go func() {
+          time.Sleep(10 * time.Millisecond)
+          reject(fmt.Errorf("foo"))
+          doneChan <- true
+        }()
+      }).Then(func(i interface{}) interface{} {
+        assert.Fail(t, "Should not be here")
+        return nil
+      }).Catch(func(i error) interface{} {
+        return "foo"
+      })
+
+      <-doneChan
+      promiseInternal := promiseInstance.(*promise)
+      assert.Equal(t, "foo", promiseInternal.resolveValue)
+    })
+
+    It("should call Catch if an internal promise was rejected", func() {
+      done := false
+      promiseInstance := NewPromise(func(resolve func(interface{}), reject func(error)) {
+        innerPromise := PromiseResolve("Hello").Then(func(i interface{}) interface{} {
+          return fmt.Errorf("Inner error")
+        })
+        resolve(innerPromise)
+      }).Catch(func(i error) interface{} {
+        assert.Equal(t, "Inner error", i.Error())
+        done = true
+        return nil
+      })
+      assert.NotNil(t, promiseInstance)
       assert.True(t, done)
     })
   })

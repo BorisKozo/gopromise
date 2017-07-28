@@ -130,12 +130,29 @@ func (p *promise) handleResolve(value interface{}) {
   if p.state != pendingState {
     panic(fmt.Errorf("Trying to resolve a promise which is not pending but %v", p.state))
   }
+  innerPromise, isPromise := value.(Promise)
+  if isPromise {
+    innerPromise.Then(func(innerValue interface{}) interface{} {
+      p.handleResolve(innerValue)
+      return nil
+    })
+    innerPromise.Catch(func(innerError error) interface{} {
+      p.handleReject(innerError)
+      return nil
+    })
+    return
+  }
   p.state = fulfilledState
   p.resolveValue = value
   for _, callbackData := range p.nextResolved {
     nextValue := callbackData.callback(value)
     resolveOrReject(nextValue, callbackData)
   }
+
+  for _, callbackData := range p.nextRejected {
+    callbackData.resolve(value)
+  }
+
 }
 
 func (p *promise) handleReject(err error) {
@@ -147,6 +164,10 @@ func (p *promise) handleReject(err error) {
   for _, callbackData := range p.nextRejected {
     nextValue := callbackData.callback(err)
     resolveOrReject(nextValue, callbackData)
+  }
+
+  for _, callbackData := range p.nextResolved {
+    callbackData.reject(err)
   }
 }
 
