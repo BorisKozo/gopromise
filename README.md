@@ -37,36 +37,38 @@ promiseInstance := NewPromise(func(resolve func(interface{}), reject func(error)
 
 ````
  
-#### PromiseResolve(value) (equivalent to Promise.resolve(value))
-Signature: ````func PromiseResolve(value interface{}) Promise ````
+#### Resolve(value) (equivalent to Promise.resolve(value))
+Signature: ````func Resolve(value interface{}) Promise ````
 
 Create a new promise which is already resolved with the given _value_
 
 ```go
- promiseInstance := PromiseResolve("my value")
+ promiseInstance := Resolve("my value")
  //promiseInstance is resolved with the value "my value"
 ```
 
-#### PromiseReject(error) (equivalent to Promise.reject(error))
-Signature: ````func PromiseReject(err error) Promise````
+#### Reject(error) (equivalent to Promise.reject(error))
+Signature: ````func Reject(err error) Promise````
 
 Create a new promise which is already rejected with the given _error_
 
 ```go
-promiseInstance := PromiseReject(fmt.Errorf("my error"))
+promiseInstance := Reject(fmt.Errorf("my error"))
 //promiseInstance is rejected with the error "my error"
 ```
 
 #### Promise.Then(func) (equivalent to promise.then(func) without the reject callback)
 Signature: ````func (p Promise) Then(handler func(interface{}) interface{}) Promise ````
 
+_For the version with the two handlers defined in A+ promises see ThenOrCatch function_
+ 
 Registers a resolve handler on the promise. Returns a new promise. If the caller promise
 is resolved (or if it is already resolved) call the _handler_. If the _handler_ returns a Promise, it
 will be chained in front of the returned promise. If the _handler_ returns an error then the returned promise
 is rejected with that error. For any other value the returned promise is resolved with that value.
 
 ```go
-PromiseResolve("foo").Then(func(value interface{}) interface{} {
+Resolve("foo").Then(func(value interface{}) interface{} {
         //value == "foo"
         return "bar"
       }).Then(func(anotherValue interface{}) interface{} {
@@ -84,13 +86,39 @@ it will be chained in front of the returned promise. If the _handler_ returns an
 is rejected with that error. For any other value the returned promise is resolved with that value.
 
 ```go
-PromiseReject(fmt.Errorf("Bad Error")).Catch(func(err error) interface{} {
+Reject(fmt.Errorf("Bad Error")).Catch(func(err error) interface{} {
  //err.Error() == "Bad Error"
         return nil
       })
 ```
 
+## Utils
+
+#### ThenOrCatch(promise, func, func) (equivalent to promise.then with both arguments)
+Signature: ```` func ThenOrCatch(promise Promise, resolveHandler PromiseResolveCallback, rejectHandler PromiseRejectCallback) Promise ````
+
+Adds both resolve and reject handlers to the given _promise_ and returns a new Promise which will be resolved or rejected
+based on the value returned from either the resolve or reject handlers. Note that only one of the handlers will be called. 
+This standard functionality of the A+ promises specification was implemented separately to reduce the API surface area of the
+Promise interface and avoid undefined function arity. 
+
+```go
+ Resolve("Foo").ThenOrCatch(promise, func(value interface{}) interface{} {
+        //value == "Foo"
+        return nil
+      }, func(i error) interface{} {
+        panic("Oh no!") //Will never reach here because the initial promise is resolved
+        return nil
+      })
+```
+
 ## Change Log
+
+**1.1.0**
+- Rename PromiseResolve -> Resolve
+- Rename PromiseReject -> Reject
+- Added ThenOrCatch function
+- Fixed an issue where a promise will not be rejected if Then returned an error
 
 **1.0.0**
 - Added initial implementation for Promise interface

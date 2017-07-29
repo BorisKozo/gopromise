@@ -63,13 +63,13 @@ func (p *promise) Then(callback PromiseResolveCallback) Promise {
       return innerPromise
     }
     if innerError, ok := nextValue.(error); ok {
-      return PromiseReject(innerError)
+      return Reject(innerError)
     }
-    return PromiseResolve(nextValue)
+    return Resolve(nextValue)
   }
 
   if p.state == rejectedState {
-    return PromiseReject(p.rejectValue)
+    return Reject(p.rejectValue)
   }
 
   callbackData := resolveCallbackData{callback: callback}
@@ -89,13 +89,13 @@ func (p *promise) Catch(callback PromiseRejectCallback) Promise {
       return innerPromise
     }
     if innerError, ok := nextValue.(error); ok {
-      return PromiseReject(innerError)
+      return Reject(innerError)
     }
-    return PromiseResolve(nextValue)
+    return Resolve(nextValue)
   }
 
   if p.state == fulfilledState {
-    return PromiseResolve(p.resolveValue)
+    return Resolve(p.resolveValue)
   }
 
   callbackData := rejectCallbackData{callback: callback}
@@ -142,6 +142,12 @@ func (p *promise) handleResolve(value interface{}) {
     })
     return
   }
+
+  if err, isError := value.(error); isError {
+    p.handleReject(err)
+    return
+  }
+
   p.state = fulfilledState
   p.resolveValue = value
   for _, callbackData := range p.nextResolved {
@@ -195,13 +201,13 @@ func NewPromise(callback func(resolve func(interface{}), reject func(error))) Pr
   return result
 }
 
-func PromiseResolve(value interface{}) Promise {
+func Resolve(value interface{}) Promise {
   result := defaultPromise()
   result.handleResolve(value)
   return result
 }
 
-func PromiseReject(err error) Promise {
+func Reject(err error) Promise {
   result := defaultPromise()
   result.handleReject(err)
   return result
