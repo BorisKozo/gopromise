@@ -84,4 +84,70 @@ var _ = Describe("Util", func() {
       assert.True(t, done)
     })
   })
+
+  Describe("All", func() {
+    It("should resolve if all promises were resolved", func() {
+      promise1 := Resolve(1)
+      promise2 := Resolve(2)
+      done := false
+      All([]Promise{promise1, promise2}).Then(func(values interface{}) interface{} {
+        results := values.([]interface{})
+        assert.Len(t, results, 2)
+        assert.Equal(t, 1, results[0])
+        assert.Equal(t, 2, results[1])
+        done = true
+        return nil
+      }).Catch(func(err error) interface{} {
+        assert.Fail(t, "should not be here")
+        return nil
+      })
+      assert.True(t, done)
+    })
+
+    It("should reject if any promise rejects", func() {
+      promise1 := Resolve(1)
+      promise2 := Resolve(2)
+      promise3 := Reject(fmt.Errorf("Error!"))
+      done := false
+      All([]Promise{promise1, promise2, promise3}).Then(func(values interface{}) interface{} {
+        assert.Fail(t, "should not be here")
+        return nil
+      }).Catch(func(err error) interface{} {
+        assert.Equal(t, "Error!", err.Error())
+        done = true
+        return nil
+      })
+      assert.True(t, done)
+    })
+
+    It("should reject with only one promise if any promise rejects", func() {
+      promise1 := Resolve(1)
+      promise2 := Reject(fmt.Errorf("Error 1"))
+      promise3 := Reject(fmt.Errorf("Error 2"))
+      done := false
+      All([]Promise{promise1, promise2, promise3}).Then(func(values interface{}) interface{} {
+        assert.Fail(t, "should not be here")
+        return nil
+      }).Catch(func(err error) interface{} {
+        assert.Equal(t, "Error 1", err.Error())
+        done = true
+        return nil
+      })
+      assert.True(t, done)
+    })
+
+    It("should resolve if no promises are passed", func() {
+      done := false
+      All([]Promise{}).Then(func(values interface{}) interface{} {
+        results := values.([]interface{})
+        assert.Len(t, results, 0)
+        done = true
+        return nil
+      }).Catch(func(err error) interface{} {
+        assert.Fail(t, "should not be here")
+        return nil
+      })
+      assert.True(t, done)
+    })
+  })
 })

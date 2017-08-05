@@ -112,7 +112,28 @@ Promise interface and avoid undefined function arity.
       })
 ```
 
+#### All(promises) promise
+Signature: ````All(promises []Promise) Promise ````
+
+Returns a new _Promise_ that resolves when all of the promises in the slice argument have resolved or if it is empty. 
+It rejects with the error of the first promise that rejects.
+
+```go
+      promise1 := Resolve(1)
+      promise2 := Resolve(2)
+     
+      All([]Promise{promise1, promise2}).Then(func(values interface{}) interface{} {
+        results := values.([]interface{})
+        len(results) //2
+        results[0] // 1
+        results[1] // 2
+      })
+```
+
 ## Change Log
+
+**1.1.1**
+- Added All function
 
 **1.1.0**
 - Rename PromiseResolve -> Resolve
