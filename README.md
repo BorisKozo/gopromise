@@ -12,6 +12,11 @@ or when an exception is thrown. In my implementation the catch/rejection clause 
 If an error is returned then the resolution mechanism assumes the promise needs to be rejected.
 Currently panic is not recovered by the catch clause.
 
+Note: This repository IS maintained but I am not committing more code until someone requests
+a feature or reports a bug. Please feel free to open an issue. My goal was to implement the 
+[ES6 promise spec](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) with Golang flavor and
+the current code should cover everything.     
+
 ## Installation
 
 ````go get  github.com/BorisKozo/gopromise````
@@ -130,7 +135,23 @@ It rejects with the error of the first promise that rejects.
       })
 ```
 
+#### Race(promises) promise
+Signature: ````Race(promises []Promise) Promise````
+
+Returns a promise that resolves or rejects as soon as one of the promises in the given slice resolves or rejects, 
+with the value or error from that promise.
+
+```go
+  promise1 := Resolve(1)
+  promise2 := Reject(fmt.Errorf("err"))
+  Race([]Promise{promise1, promise2}).Then(func(value interface{}) interface{} {
+     //value == 1
+  })
+```
+
 ## Change Log
+**1.1.2**
+- Added Race function
 
 **1.1.1**
 - Added All function

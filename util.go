@@ -54,3 +54,33 @@ func All(promises []Promise) Promise {
     }
   })
 }
+
+func Race(promises []Promise) Promise {
+  return NewPromise(func(resolve func(interface{}), reject func(error)) {
+    anyReturned := false
+    mutex := sync.Mutex{}
+    for _, promise := range promises {
+      ThenOrCatch(promise, func(value interface{}) interface{} {
+        mutex.Lock()
+        if anyReturned {
+          mutex.Unlock()
+          return nil
+        }
+        anyReturned = true
+        mutex.Unlock()
+        resolve(value)
+        return nil
+      }, func(err error) interface{} {
+        mutex.Lock()
+        if anyReturned {
+          mutex.Unlock()
+          return nil
+        }
+        anyReturned = true
+        mutex.Unlock()
+        reject(err)
+        return nil
+      })
+    }
+  })
+}

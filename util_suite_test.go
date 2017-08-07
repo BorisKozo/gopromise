@@ -2,14 +2,9 @@ package Promise
 
 import (
   . "github.com/onsi/ginkgo"
-  "testing"
   "github.com/stretchr/testify/assert"
   "fmt"
 )
-
-func TestUtil(t *testing.T) {
-  RunSpecs(t, "Promise Util Suite")
-}
 
 var _ = Describe("Util", func() {
   var t = GinkgoT()
@@ -145,6 +140,53 @@ var _ = Describe("Util", func() {
         return nil
       }).Catch(func(err error) interface{} {
         assert.Fail(t, "should not be here")
+        return nil
+      })
+      assert.True(t, done)
+    })
+  })
+
+  Describe("Race", func() {
+    It("should resolve with the first resolved promise", func() {
+      promise1 := Resolve(1)
+      promise2 := Resolve(2)
+      done := false
+      Race([]Promise{promise1, promise2}).Then(func(value interface{}) interface{} {
+        assert.Equal(t, 1, value)
+        done = true
+        return nil
+      }).Catch(func(value error) interface{} {
+        assert.Fail(t, "should not be here")
+        return nil
+      })
+      assert.True(t, done)
+    })
+
+    It("should resolve with the first resolved promise even if the others reject", func() {
+      promise1 := Resolve(1)
+      promise2 := Reject(fmt.Errorf("err"))
+      done := false
+      Race([]Promise{promise1, promise2}).Then(func(value interface{}) interface{} {
+        assert.Equal(t, 1, value)
+        done = true
+        return nil
+      }).Catch(func(value error) interface{} {
+        assert.Fail(t, "should not be here")
+        return nil
+      })
+      assert.True(t, done)
+    })
+
+    It("should reject with the first rejected promise", func() {
+      promise1 := Resolve(1)
+      promise2 := Reject(fmt.Errorf("err"))
+      done := false
+      Race([]Promise{promise2, promise1}).Then(func(value interface{}) interface{} {
+        assert.Fail(t, "should not be here")
+        return nil
+      }).Catch(func(value error) interface{} {
+        assert.Equal(t, "err", value.Error())
+        done = true
         return nil
       })
       assert.True(t, done)
