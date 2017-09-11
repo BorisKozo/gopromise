@@ -27,16 +27,15 @@ func All(promises []Promise) Promise {
     hadError := false
     mutex := sync.Mutex{}
     for index, promise := range promises {
+      innerIndex := index
       ThenOrCatch(promise, func(value interface{}) interface{} {
+        result[innerIndex] = value
         mutex.Lock()
-        result[index] = value
         count++
-
-        if count == total {
-          mutex.Unlock()
+        equalLen := count == total
+        mutex.Unlock()
+        if equalLen {
           resolve(result)
-        } else {
-          mutex.Unlock()
         }
         return nil
       }, func(err error) interface{} {
@@ -82,5 +81,52 @@ func Race(promises []Promise) Promise {
         return nil
       })
     }
+  })
+}
+
+func Every(promises []Promise) Promise {
+  return NewPromise(func(resolve func(interface{}), reject func(error)) {
+    total := len(promises)
+    var results = make([]interface{}, total)
+    var count = 0
+    mutex := sync.Mutex{}
+    for index, promise := range promises {
+      innerIndex := index
+      ThenOrCatch(promise, func(value interface{}) interface{} {
+        results[innerIndex] = value
+        mutex.Lock()
+        count++
+        equalLen := count == total
+        mutex.Unlock()
+        if equalLen {
+          resolve(results)
+        }
+        return nil
+      }, func(err error) interface{} {
+        results[innerIndex] = err
+        mutex.Lock()
+        count++
+        equalLen := count == total
+        mutex.Unlock()
+        if equalLen {
+          resolve(results)
+        }
+        return nil
+      })
+    }
+  })
+}
+
+func Run(fn func() interface{}) Promise {
+  return NewPromise(func(resolve func(interface{}), reject func(error)) {
+    go func() {
+      result := fn()
+      err, ok := result.(error)
+      if ok {
+        reject(err)
+      } else {
+        resolve(result)
+      }
+    }()
   })
 }

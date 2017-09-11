@@ -149,7 +149,54 @@ with the value or error from that promise.
   })
 ```
 
+#### Every(promises) promise
+Signature: ````Every(promises []Promise) Promise ````
+
+Returns a new _Promise_ that resolves when all of the promises in the slice argument have been resolved or rejected with
+the respective resolution or rejection value as the slice index. Unlike _All_ the returned promise will always resolve
+when every promise of the given slice has finished with either resolution or rejects and it is up to the user to determine
+which is which by checking for the resulting type.
+
+```go
+      promise1 := Resolve(1)
+      promise2 := Resolve(2)
+      promise3 := Reject(fmt.Errorf("Error!"))
+      
+      Every([]Promise{promise1, promise2, promise3}).Then(func(values interface{}) interface{} {
+        results := values.([]interface{})
+        len(results) // 3
+        results[0] // 1
+        results[1] // 2
+        results[2] // error with the message Error!
+        return nil
+      })
+``` 
+
+#### Run(func) Promise
+Signature: ```` Run(fn func() interface{}) Promise ````
+
+Runs the given function _fn_ as a goroutine and returns a promise which is resolved or rejected with the value returned by _fn_. 
+The promise is resolved if the retuned value is not an ````error```` and rejected if it is.
+
+```go
+ Run(func() interface{} {
+           //This code runs in a goroutine
+           time.Sleep(10 * time.Minute)
+           return "AAA"
+        }).Then(func(i interface{}) interface{}{
+          //This code runs after 10 minutes
+          //i == "AAA"
+        })
+ //This code runs immediately 
+
+``` 
+
 ## Change Log
+**1.1.3**
+- Added Every function
+- Added Run function
+- Fixed an issue in the All function which caused results to be in the incorrect index
+
 **1.1.2**
 - Added Race function
 

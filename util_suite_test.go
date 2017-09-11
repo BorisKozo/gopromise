@@ -4,6 +4,7 @@ import (
   . "github.com/onsi/ginkgo"
   "github.com/stretchr/testify/assert"
   "fmt"
+  "time"
 )
 
 var _ = Describe("Util", func() {
@@ -190,6 +191,86 @@ var _ = Describe("Util", func() {
         return nil
       })
       assert.True(t, done)
+    })
+  })
+
+  Describe("Every", func() {
+    It("should resolve if all promises were resolved", func() {
+      promise1 := Resolve(1)
+      promise2 := Resolve(2)
+      done := false
+      Every([]Promise{promise1, promise2}).Then(func(values interface{}) interface{} {
+        results := values.([]interface{})
+        assert.Len(t, results, 2)
+        assert.Equal(t, 1, results[0])
+        assert.Equal(t, 2, results[1])
+        done = true
+        return nil
+      }).Catch(func(err error) interface{} {
+        assert.Fail(t, "should not be here")
+        return nil
+      })
+      assert.True(t, done)
+    })
+
+    It("should resolve even if a promise rejects", func() {
+      promise1 := Resolve(1)
+      promise2 := Resolve(2)
+      promise3 := Reject(fmt.Errorf("Error!"))
+      done := false
+      Every([]Promise{promise1, promise2, promise3}).Then(func(values interface{}) interface{} {
+        results := values.([]interface{})
+        assert.Len(t, results, 3)
+        assert.Equal(t, 1, results[0])
+        assert.Equal(t, 2, results[1])
+        assert.Equal(t, "Error!", (results[2].(error)).Error())
+        done = true
+        return nil
+      }).Catch(func(err error) interface{} {
+        assert.Fail(t, "should not be here")
+        return nil
+      })
+      assert.True(t, done)
+    })
+  })
+
+  Describe("Run", func() {
+    It("should run an async function and report the result", func() {
+      endChan := make(chan bool)
+      done := 1
+      Run(func() interface{} {
+        time.Sleep(2 * time.Millisecond)
+        done = 2
+        endChan <- true
+        return "AAA"
+      }).Then(func(i interface{}) interface{} {
+        assert.Equal(t, i, "AAA")
+        done = 3
+        return nil
+      })
+      assert.Equal(t, 1, done)
+      <-endChan
+      time.Sleep(2 * time.Millisecond)
+      assert.Equal(t, 3, done)
+    })
+
+    It("should run an async function and reject if there was an error", func() {
+      endChan := make(chan bool)
+      done := 1
+      Run(func() interface{} {
+        time.Sleep(2 * time.Millisecond)
+        done = 2
+        endChan <- true
+        return fmt.Errorf("Oh no")
+      }).Catch(func(i error) interface{} {
+        assert.Equal(t, i.Error(), "Oh no")
+        done = 3
+        return nil
+      })
+      assert.Equal(t, 1, done)
+      <-endChan
+      time.Sleep(2 * time.Millisecond)
+      assert.Equal(t, 3, done)
     })
   })
 })
