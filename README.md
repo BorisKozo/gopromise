@@ -98,7 +98,7 @@ Reject(fmt.Errorf("Bad Error")).Catch(func(err error) interface{} {
 ```
 
 #### Promise.Finally(func) (equivalent to promise.finally(func))
-Signature: ```` func (p Promise) Catch(handler func() error) Promise````
+Signature: ```` func (p Promise) Finally(handler func() error) Promise````
 
 Registers a finally handler on the promise. Returns a new promise. If the caller promise is
 rejected or resolved call the _handler_. If the _handler_ returns an error then the returned promise
