@@ -97,6 +97,24 @@ Reject(fmt.Errorf("Bad Error")).Catch(func(err error) interface{} {
       })
 ```
 
+#### Promise.Finally(func) (equivalent to promise.finally(func))
+Signature: ```` func (p Promise) Catch(handler func() error) Promise````
+
+Registers a finally handler on the promise. Returns a new promise. If the caller promise is
+rejected or resolved call the _handler_. If the _handler_ returns an error then the returned promise
+is rejected with that error. In any other case the returned promise will be rejected or resolved with the original resolution value or
+rejection error of the calling promise.
+
+```go
+Reject(fmt.Errorf("Bad Error")).Finally(func() error {
+  fmt.Println("This will be printed")
+  return nil
+}).Catch(func(err error) interface{} {
+ //err.Error() == "Bad Error"
+        return nil
+      })
+```
+
 ## Utils
 
 #### ThenOrCatch(promise, func, func) (equivalent to promise.then with both arguments)
@@ -192,6 +210,9 @@ The promise is resolved if the retuned value is not an ````error```` and rejecte
 ``` 
 
 ## Change Log
+**1.2.0**
+- Added Finally (EcmaScript 2018)
+
 **1.1.3**
 - Added Every function
 - Added Run function
